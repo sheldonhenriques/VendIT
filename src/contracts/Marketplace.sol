@@ -5,69 +5,81 @@ contract Marketplace {
     uint public productCount = 0;
     mapping(uint => Product) public products;
 
+    // structure of product
     struct Product {
         uint id;
         string name;
+        string flavor;
+        uint upc;
         uint price;
         address payable owner;
         bool purchased;
     }
 
+    // event product created
     event ProductCreated(
         uint id,
         string name,
+        string flavor,
+        uint upc,
         uint price,
         address payable owner,
         bool purchased
     );
 
+    // event product purchased
     event ProductPurchased(
         uint id,
         string name,
+        string flavor,
+        uint upc,
         uint price,
         address payable owner,
         bool purchased
     );
 
     constructor() public {
-        name = "Dapp University Marketplace";
+        name = "Vending MAchine";
     }
 
-    function createProduct(string memory _name, uint _price) public {
-        // Require a valid name
+    // function to create product
+    function createProduct(string memory _name, string memory _flavor, uint _upc, uint _price) public {
         require(bytes(_name).length > 0);
-        // Require a valid price
         require(_price > 0);
-        // Increment product count
         productCount ++;
-        // Create the product
-        products[productCount] = Product(productCount, _name, _price, msg.sender, false);
-        // Trigger an event
-        emit ProductCreated(productCount, _name, _price, msg.sender, false);
+        products[productCount] = Product(productCount, _name, _flavor, _upc, _price, msg.sender, false);
+        emit ProductCreated(productCount, _name, _flavor, _upc, _price, msg.sender, false);
     }
 
+    // function to purchase product
     function purchaseProduct(uint _id) public payable {
-        // Fetch the product
+        
         Product memory _product = products[_id];
-        // Fetch the owner
         address payable _seller = _product.owner;
-        // Make sure the product has a valid id
         require(_product.id > 0 && _product.id <= productCount);
-        // Require that there is enough Ether in the transaction
         require(msg.value >= _product.price);
-        // Require that the product has not been purchased already
         require(!_product.purchased);
-        // Require that the buyer is not the seller
         require(_seller != msg.sender);
-        // Transfer ownership to the buyer
         _product.owner = msg.sender;
-        // Mark as purchased
         _product.purchased = true;
-        // Update the product
         products[_id] = _product;
-        // Pay the seller by sending them Ether
         address(_seller).transfer(msg.value);
-        // Trigger an event
-        emit ProductPurchased(productCount, _product.name, _product.price, msg.sender, true);
+        emit ProductPurchased( _product.id, _product.name, _product.flavor, _product.upc, _product.price, msg.sender, true);
+    }
+
+    // function to verify a valid QR code
+    function verifyOwnership(uint _id) public view returns (bool ){
+        Product memory _product = products[_id];
+        if( _product.purchased ==true && msg.sender == _product.owner){
+            return true;
+        }else{
+            return false;
+        }
+
     }
 }
+
+
+
+
+

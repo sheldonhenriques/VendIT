@@ -5,8 +5,10 @@ import './App.css';
 import Marketplace from '../abis/Marketplace.json'
 import Navbar from './Navbar'
 import Main from './Main'
+import QRCode from 'qrcode'
 
 class App extends Component {
+
 
   async componentWillMount() {
     await this.loadWeb3()
@@ -34,7 +36,8 @@ class App extends Component {
     const networkId = await web3.eth.net.getId()
     const networkData = Marketplace.networks[networkId]
     if(networkData) {
-      const marketplace = web3.eth.Contract(Marketplace.abi, networkData.address)
+      const marketplace = new web3.eth.Contract(Marketplace.abi, networkData.address)
+      console.log('marketplace:',marketplace)
       this.setState({ marketplace })
       const productCount = await marketplace.methods.productCount().call()
       this.setState({ productCount })
@@ -62,11 +65,21 @@ class App extends Component {
 
     this.createProduct = this.createProduct.bind(this)
     this.purchaseProduct = this.purchaseProduct.bind(this)
+    this.generateQR = this.generateQR.bind(this)
   }
 
-  createProduct(name, price) {
+  createProduct(name, flavor, upc, price) {
     this.setState({ loading: true })
-    this.state.marketplace.methods.createProduct(name, price).send({ from: this.state.account })
+    this.state.marketplace.methods.createProduct(name, flavor, upc, price).send({ from: this.state.account },function (e, contract){
+
+        if(e){
+          console.log('Failed!');
+          return;
+        }else{
+          console.log('Contract created!');
+          console.log(contract)
+
+        }})
     .once('receipt', (receipt) => {
       this.setState({ loading: false })
     })
@@ -74,10 +87,33 @@ class App extends Component {
 
   purchaseProduct(id, price) {
     this.setState({ loading: true })
+    
     this.state.marketplace.methods.purchaseProduct(id).send({ from: this.state.account, value: price })
     .once('receipt', (receipt) => {
-      this.setState({ loading: false })
+      console.log(receipt)
+      this.setState({ loading:false })
+      var ind = receipt.events.ProductPurchased.returnValues[0]
+      var hash = receipt.blockHash
+      var acc = this.state.account
+      var ups = receipt.events.ProductPurchased.returnValues[3]
+      var idk = [acc , ind , ups , hash]
+      this.generateQR(idk.join(', '))
     })
+  }
+
+
+
+   generateQR(str) {
+    
+     QRCode.toCanvas(document.getElementById('canvas'), str,                  
+      function(error) {
+          if (error) console.error(error)
+          var nameArr = str.split(', ');
+          console.log(nameArr[0])
+          console.log(nameArr[1])
+          console.log(nameArr[2])
+
+     })
   }
 
   render() {
@@ -92,7 +128,8 @@ class App extends Component {
                 : <Main
                   products={this.state.products}
                   createProduct={this.createProduct}
-                  purchaseProduct={this.purchaseProduct} />
+                  purchaseProduct={this.purchaseProduct}
+                  generateQR={this.generateQR}/>
               }
             </main>
           </div>
